@@ -16,7 +16,8 @@
    :is-void (-> m
                  .getReturnType
                  .getName
-                 (= "void"))})
+                 (= "void"))
+   :is-static (java.lang.reflect.Modifier/isStatic (.getModifiers m))})
 
 (defn- declare-fn
   "Given a method spec create an unevaluated function form, currying
@@ -24,19 +25,27 @@
   [spec instance no-currying]
   (let [method-name (symbol (:name spec))
         raw-method-name (symbol (str "." (:raw-name spec)))
+        static-method-name (symbol (str (.getName instance) "/" (:raw-name spec)))
         params (vec (map gensym (range (:args spec))))
         is-void (:is-void spec)]
-    (if no-currying
-      `(defn ~method-name [this# ~@params]
-         (let [return# (~raw-method-name this# ~@params)]
-           (if ~is-void
-             this#
-             return#)))
-      `(defn ~method-name [~@params]
-         (let [return# (~raw-method-name @~instance ~@params)]
-           (if ~is-void
-             @~instance
-             return#))))))
+    (cond
+     ;; define function for static method
+     (:is-static spec)
+     `(def ~method-name (fn ([~@params] (~static-method-name ~@params))))
+     ;; define non-curried function
+     no-currying
+     `(defn ~method-name [this# ~@params]
+        (let [return# (~raw-method-name this# ~@params)]
+          (if ~is-void
+            this#
+            return#)))
+     ;; define curried function
+     :else
+     `(defn ~method-name [~@params]
+        (let [return# (~raw-method-name @~instance ~@params)]
+          (if ~is-void
+            @~instance
+            return#))))))
 
 (defn- define-symbol
   "Creates and return a symbol that resolves to the provided object"
@@ -60,7 +69,7 @@
                           (class? target) [target (.newInstance target)]
                           :else [(class target) target])
         specs (map method-spec (.getDeclaredMethods clazz))
-        target-sym (if-not no-currying (define-symbol instance))
+        target-sym (if no-currying clazz (define-symbol instance))
         current-ns (.getName *ns*)]
     (when-not no-currying (assert (instance? clazz instance)))
     `(do
@@ -70,6 +79,10 @@
        (in-ns (quote ~current-ns)))))
 
 (comment
-  ;; multiple arity
+  ;;- multiple arity
+  ;;- currying must be disabled by default for static methods
+  ;; and field/static methods with the same name??? renaming?
+  ;;- and only public methods... or make them public????
+  ;;- better interop by coercing argument types
   (refer 'fus.noma.da :only ['mouse-move])
   (to-clj java.awt.Robot :using-ns 'fus.noma.da))
