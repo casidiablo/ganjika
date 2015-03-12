@@ -27,7 +27,7 @@ Add to leiningen `[ganjika 0.1.0-SNAPSHOT]`. Then:
 ;; you can specify a namespace to define the functions
 (def-java-fns robot :using-ns 'my.robot)
 (my.robot/mouse-move 30 400)
-;; use refer instead of require/use to avoid the namespace prefix
+;; use refer (instead of require/use) to avoid the namespace prefix
 (refer 'my.robot :only ['mouse-move])
 
 ;; in some scenarios currying is not desirable

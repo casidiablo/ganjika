@@ -37,7 +37,7 @@
   (let [params (->> spec
                     :param-count
                     range
-                    (map gensym)
+                    (map #(gensym (str "param-" %)))
                     vec)]
     (if (and use-type-hinting (not (:disable-hinting spec)))
       (map hint-symbol params (:param-types spec))
@@ -107,20 +107,21 @@
        (map-values remove-repeated-arities)))
 
 (defmacro def-java-fns
-  "Maps the provided provided Java class or object methods to
-  clojure-like functions (inside using-ns if any or in the current
-  namespace). If target is a class an instance is created (assumes
-  default constructor) unless currying is disabled (via :currying
-  false)."
+  "Maps the provided provided object methods to clojure-like
+  functions (inside using-ns if any or in the current namespace). All
+  fns are curried with the provided object unless currying is disabled
+  via :currying false; when currying is disabled target must be a
+  class."
   [target & {:keys [using-ns currying disable-type-hinting]}]
+  {:pre [(some? target), ;; target can't be null
+         (if (false? currying) ;; if no currying, target must be a class
+           (instance? java.lang.Class (eval target))
+           :dont-care)]}
   (let [no-currying (false? currying)
         type-hinting (not (true? disable-type-hinting))
-        target (eval target)
-        [clazz instance] (cond
-                          (and (class? target) no-currying) [target nil]
-                          no-currying [(class target) nil]
-                          (class? target) [target (.newInstance target)]
-                          :else [(class target) target])
+        resolved-target (eval target)
+        clazz (if no-currying resolved-target (class resolved-target))
+        instance (if no-currying nil resolved-target)
         specs (build-specs clazz)
         target-sym (if no-currying clazz (define-symbol instance))
         current-ns (.getName *ns*)
