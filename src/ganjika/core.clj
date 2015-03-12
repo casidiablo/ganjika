@@ -2,8 +2,6 @@
   (:require [ganjika.util :refer [camel-to-kebab-case is-public
                                   map-values]]))
 
-;; TODO better interop by coercing argument types
-
 (defn- method-specs
   "Creates a seq of specs for all public methods of the provided class."
   [^java.lang.Class c]
@@ -108,7 +106,7 @@
        (group-by :name)
        (map-values remove-repeated-arities)))
 
-(defmacro def-java-methods
+(defmacro def-java-fns
   "Maps the provided provided Java class or object methods to
   clojure-like functions (inside using-ns if any or in the current
   namespace). If target is a class an instance is created (assumes
@@ -135,7 +133,3 @@
        ~@(map function-builder specs)
        (in-ns (quote ~current-ns))
        ~mappings)))
-
-(comment
-  (refer 'fus.noma.da :only ['mouse-move])
-  (to-clj java.awt.Robot :using-ns 'fus.noma.da))
