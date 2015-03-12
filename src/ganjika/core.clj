@@ -19,7 +19,7 @@
                             .getReturnType
                             .getName
                             (= "void"))
-               :param-types (.getParameterTypes m)
+               :param-types (vec (.getParameterTypes m))
                :is-static (java.lang.reflect.Modifier/isStatic (.getModifiers m))}))))
 
 (defn- hint-symbol
@@ -100,7 +100,7 @@
            spec))
        (group-by :param-count specs)))
 
-(defn build-specs
+(defn- build-specs
   "Given a class builds map of method specs grouped by :name"
   [clazz]
   (->> clazz
@@ -126,13 +126,15 @@
         specs (build-specs clazz)
         target-sym (if no-currying clazz (define-symbol instance))
         current-ns (.getName *ns*)
-        function-builder (partial build-function target-sym no-currying type-hinting)]
+        function-builder (partial build-function target-sym no-currying type-hinting)
+        mappings (map-values #(:raw-name (first %)) specs)]
     (when-not no-currying (assert (instance? clazz instance)))
     `(do
        (when ~using-ns
          (in-ns ~using-ns))
        ~@(map function-builder specs)
-       (in-ns (quote ~current-ns)))))
+       (in-ns (quote ~current-ns))
+       ~mappings)))
 
 (comment
   (refer 'fus.noma.da :only ['mouse-move])
