@@ -41,13 +41,14 @@
                               arr))}})
 
 (defn- does-not-need-coercion
-  "Returns true if all the params and the signature types match"
+  "Returns true if all params match the signature types"
   [params signature]
   (every? (fn [[type param]] (instance? type param))
           (map vector signature params)))
 
 (defn- can-coerce
-  "Returns true if it's possible to coerce param to the provided type"
+  "Returns a function to coerce param to the provided type or nil if
+  none is available"
   [param type]
   (if-let [coercion-fns (coercions (class param))]
     (let [target-type (or (primitives (str type)) type)]

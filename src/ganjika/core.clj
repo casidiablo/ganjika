@@ -1,6 +1,7 @@
 (ns ganjika.core
   (:require [ganjika.util :refer [camel-to-kebab-case is-public
                                   map-values]]
+            [clojure.set]
             [ganjika.coercion :refer [primitives]]))
 
 (defn- method-specs
@@ -30,13 +31,13 @@
 (defn- build-params
   "Given a method spec returns a list of symbols to be used as function
   parameters (type-hinting them if necessary)"
-  [spec use-type-hinting symbol-prefix]
+  [spec opts-flags symbol-prefix]
   (let [params (->> spec
                     :param-count
                     range
                     (map #(gensym (str (name symbol-prefix) %)))
                     vec)]
-    (if (and use-type-hinting (not (:disable-hinting spec)))
+    (if (and (not (:disable-type-hinting opts-flags)) (not (:disable-hinting spec)))
       (map hint-symbol params (:param-types spec))
       params)))
 
@@ -63,12 +64,12 @@
 
 (defn- build-arity
   "Giving a spec builds the arity part of a fn, i.e.: `([params] body)."
-  [instance no-currying use-type-hinting type-coercion spec]
+  [instance opts-flags spec]
   (let [raw-method-symbol (symbol (str "." (:raw-name spec)))
-        original-params (build-params spec use-type-hinting :original-param)
+        original-params (build-params spec opts-flags :original-param)
         signatures (:signatures spec)
         is-void (:is-void spec)
-        application-strategy (if type-coercion apply-coercing apply-without-coercing)
+        application-strategy (if (:disable-coercion opts-flags) apply-without-coercing apply-coercing)
         apply-fn (fn [method target] (application-strategy method target original-params signatures))]
     (cond
      ;; arity for static method
@@ -76,7 +77,7 @@
      (let [static-method-symbol (symbol (str (:class-name spec) "/" (:raw-name spec)))]
        `([~@original-params] ~(apply-fn static-method-symbol :static)))
      ;; arity for non-curried function
-     no-currying
+     (:disable-currying opts-flags)
      (let [this-symbol (gensym "this")]
        `([~this-symbol ~@original-params]
          (let [result# ~(apply-fn raw-method-symbol this-symbol)]
@@ -96,9 +97,9 @@
   The function will curry the target-sym unless no-currying is true.  If
   type-hinting is true, type-hinted all the function parameters (unless
   the spec forbids it with :disable-hinting)."
-  [target-sym no-currying type-hinting type-coercion [fn-name specs]]
+  [target-sym opts-flags [fn-name specs]]
   (let [fn-symbol (symbol fn-name)
-        arity-fn (partial build-arity target-sym no-currying type-hinting type-coercion)]
+        arity-fn (partial build-arity target-sym opts-flags)]
     `(defn ~fn-symbol ~@(map arity-fn specs))))
 
 (defn- define-symbol
@@ -127,26 +128,34 @@
        (map-values remove-repeated-arities)))
 
 (defmacro def-java-fns
-  "Maps the provided provided object methods to clojure-like
-  functions (inside using-ns if any or in the current namespace). All
-  fns are curried with the provided object unless currying is disabled
-  via :currying false; when currying is disabled target must be a
-  class."
-  [target & {:keys [using-ns currying disable-type-hinting disable-coercion]}]
-  {:pre [(some? target), ;; target can't be null
-         (if (false? currying) ;; if no currying, target must be a class
+  "Maps the methods of the provided object to clojure-like
+  functions (inside :using-ns if any or in the current namespace). All
+  fns are curried with the provided object unless :disable-currying flag
+  is provided; when currying is disabled target *must* be a class.
+
+  Function arguments are hinted by default unless :disable-type-hinting
+  is provided.
+
+  Function arguments are coerced if they don't type check against
+  underlying method signature, unless :disable-coercion is provided."
+  [target & opts]
+  {:pre [(some? target),                    ;; target can't be null
+         (if (:disable-currying (set opts)) ;; if no currying target must be a class
            (instance? java.lang.Class (eval target))
            :dont-care)]}
-  (let [no-currying (false? currying)
-        type-hinting (not (true? disable-type-hinting))
-        type-coercion (not (true? disable-coercion))
+  (let [opts-flags #{:disable-currying :disable-type-hinting :disable-coercion}
+        provided-flags (clojure.set/intersection opts-flags (set opts))
+        {:keys [using-ns]} (->> opts
+                                (filter (complement opts-flags))
+                                (apply hash-map))
+        no-currying (:disable-currying provided-flags)
         resolved-target (eval target)
         clazz (if no-currying resolved-target (class resolved-target))
         instance (if no-currying nil resolved-target)
         specs (build-specs clazz)
         target-sym (if no-currying clazz (define-symbol instance))
         current-ns (.getName *ns*)
-        function-builder (partial build-function target-sym no-currying type-hinting type-coercion)
+        function-builder (partial build-function target-sym provided-flags)
         mappings (map-values #(:raw-name (first %)) specs)]
     (when-not no-currying (assert (instance? clazz instance)))
     `(do

@@ -32,13 +32,18 @@ Add to leiningen `[ganjika 0.1.0-SNAPSHOT]`. Then:
 
 ;; In some scenarios currying is not desirable:
 
-(def-java-fns java.awt.Robot :currying false)
+(def-java-fns java.awt.Robot :disable-currying)
 (mouse-move robot 30 400)
 
 ;; By default the functions are defined using type hinting. This
 ;; behavior can be changed by doing:
 
-(def-java-fns java.awt.Robot :disable-type-hinting true)
+(def-java-fns robot :disable-type-hinting)
+
+;; By default functions parameters are coerced to the underlying method
+;; types. If that's a problem it can be disabled:
+
+(def-java-fns robot :disable-coercion)
 ```
 
 ### TODO
@@ -47,4 +52,4 @@ Add to leiningen `[ganjika 0.1.0-SNAPSHOT]`. Then:
   different modifiers (static/non-static)
 - Custom coercions
 - Static only option (and other filters)
-- Better API (use :some-option instead of :some-option true)
+- Complete the coercion suite

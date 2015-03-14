@@ -5,12 +5,12 @@
 
 (def-java-fns (new Example "Plain"))
 (def-java-fns (new Example "Namespaced") :using-ns 'cool.ns)
-(def-java-fns (new Example "No Coercion") :using-ns 'no.coercion.ns :disable-coercion true)
+(def-java-fns (new Example "No Coercion") :using-ns 'no.coercion.ns :disable-coercion)
 
 (def example-instance (new Example "NoCurried"))
-(def-java-fns Example :using-ns 'no.haskell :currying false)
+(def-java-fns Example :using-ns 'no.haskell :disable-currying)
 
-(deftest funciton-definitions
+(deftest functionality
   (testing "Functions were defined"
     ;; curried function
     (is (= "Hi, Plain!" (say-hello)))
