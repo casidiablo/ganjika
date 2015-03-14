@@ -30,4 +30,10 @@
     (is (= 25 (square 10/2)))
     ;; without type coercion
     (is (= 25 (no.coercion.ns/square (int 5))))
-    (is (thrown? ClassCastException (no.coercion.ns/square 5)))))
+    (is (thrown? ClassCastException (no.coercion.ns/square 5))))
+
+  (testing "Validation works"
+    ;; can't accept nils
+    (is (thrown? AssertionError (eval `(def-java-fns nil))))
+    ;; if currying is disabled, argument must be a class
+    (is (thrown? AssertionError (eval `(def-java-fns (new Object) :disable-currying))))))
