@@ -40,26 +40,36 @@
       (map hint-symbol params (:param-types spec))
       params)))
 
-(defn- apply-coercing [method-symbol instance original-params signatures]
+(defn- apply-coercing
+  "Returns an unevaluated apply of method-symbol coercing the provided
+  params if necessary."
+  [method-symbol instance params signatures]
   (let [instance (if (= instance :static) '() (list instance))
-        coerced-params (map (fn [_] (gensym)) original-params)]
+        coerced-params (map (fn [_] (gensym)) params)]
     `(apply (fn [~@coerced-params] (~method-symbol
                                    ~@instance
                                    ~@coerced-params))
-            (if (not (empty? (list ~@original-params)))
+            (if (not (empty? (list ~@params)))
               (ganjika.coercion/coerce-params
-               (list ~@original-params)
+               (list ~@params)
                (list ~@signatures))
               '()))))
 
+(defn- apply-without-coercing
+  "Returns an unevaluated application of method-symbol"
+  [method-symbol instance params signatures]
+  (let [instance (if (= instance :static) '() (list instance))]
+    `(~method-symbol ~@instance ~@params)))
+
 (defn- build-arity
   "Giving a spec builds the arity part of a fn, i.e.: `([params] body)."
-  [instance no-currying use-type-hinting spec]
+  [instance no-currying use-type-hinting type-coercion spec]
   (let [raw-method-symbol (symbol (str "." (:raw-name spec)))
         original-params (build-params spec use-type-hinting :original-param)
         signatures (:signatures spec)
         is-void (:is-void spec)
-        apply-fn (fn [method target] (apply-coercing method target original-params signatures))]
+        application-strategy (if type-coercion apply-coercing apply-without-coercing)
+        apply-fn (fn [method target] (application-strategy method target original-params signatures))]
     (cond
      ;; arity for static method
      (:is-static spec)
@@ -86,9 +96,9 @@
   The function will curry the target-sym unless no-currying is true.  If
   type-hinting is true, type-hinted all the function parameters (unless
   the spec forbids it with :disable-hinting)."
-  [target-sym no-currying type-hinting [fn-name specs]]
+  [target-sym no-currying type-hinting type-coercion [fn-name specs]]
   (let [fn-symbol (symbol fn-name)
-        arity-fn (partial build-arity target-sym no-currying type-hinting)]
+        arity-fn (partial build-arity target-sym no-currying type-hinting type-coercion)]
     `(defn ~fn-symbol ~@(map arity-fn specs))))
 
 (defn- define-symbol
@@ -122,20 +132,21 @@
   fns are curried with the provided object unless currying is disabled
   via :currying false; when currying is disabled target must be a
   class."
-  [target & {:keys [using-ns currying disable-type-hinting]}]
+  [target & {:keys [using-ns currying disable-type-hinting disable-coercion]}]
   {:pre [(some? target), ;; target can't be null
          (if (false? currying) ;; if no currying, target must be a class
            (instance? java.lang.Class (eval target))
            :dont-care)]}
   (let [no-currying (false? currying)
         type-hinting (not (true? disable-type-hinting))
+        type-coercion (not (true? disable-coercion))
         resolved-target (eval target)
         clazz (if no-currying resolved-target (class resolved-target))
         instance (if no-currying nil resolved-target)
         specs (build-specs clazz)
         target-sym (if no-currying clazz (define-symbol instance))
         current-ns (.getName *ns*)
-        function-builder (partial build-function target-sym no-currying type-hinting)
+        function-builder (partial build-function target-sym no-currying type-hinting type-coercion)
         mappings (map-values #(:raw-name (first %)) specs)]
     (when-not no-currying (assert (instance? clazz instance)))
     `(do

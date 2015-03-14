@@ -5,6 +5,7 @@
 
 (def-java-fns (new Example "Plain"))
 (def-java-fns (new Example "Namespaced") :using-ns 'cool.ns)
+(def-java-fns (new Example "No Coercion") :using-ns 'no.coercion.ns :disable-coercion true)
 
 (def example-instance (new Example "NoCurried"))
 (def-java-fns Example :using-ns 'no.haskell :currying false)
@@ -26,4 +27,7 @@
     (is (= 42 (add-two-numbers 13 29)))
     ;; type coercion
     (is (= "Bye Terence McKenna" (good-bye ["Terence" "McKenna"])))
-    (is (= 25 (square (int 5))))))
+    (is (= 25 (square 10/2)))
+    ;; without type coercion
+    (is (= 25 (no.coercion.ns/square (int 5))))
+    (is (thrown? ClassCastException (no.coercion.ns/square 5)))))
