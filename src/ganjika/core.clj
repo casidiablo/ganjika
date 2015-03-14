@@ -40,35 +40,43 @@
       (map hint-symbol params (:param-types spec))
       params)))
 
+(defn- apply-coercing [method-symbol instance original-params signatures]
+  (let [instance (if (= instance :static) '() (list instance))
+        coerced-params (map (fn [_] (gensym)) original-params)]
+    `(apply (fn [~@coerced-params] (~method-symbol
+                                   ~@instance
+                                   ~@coerced-params))
+            (if (not (empty? (list ~@original-params)))
+              (ganjika.coercion/coerce-params
+               (list ~@original-params)
+               (list ~@signatures))
+              '()))))
+
 (defn- build-arity
   "Giving a spec builds the arity part of a fn, i.e.: `([params] body)."
   [instance no-currying use-type-hinting spec]
   (let [raw-method-symbol (symbol (str "." (:raw-name spec)))
         original-params (build-params spec use-type-hinting :original-param)
-        coerced-params (build-params spec use-type-hinting :coerced-param)
         signatures (:signatures spec)
-        is-void (:is-void spec)]
+        is-void (:is-void spec)
+        apply-fn (fn [method target] (apply-coercing method target original-params signatures))]
     (cond
      ;; arity for static method
      (:is-static spec)
      (let [static-method-symbol (symbol (str (:class-name spec) "/" (:raw-name spec)))]
-       `([~@original-params] (~static-method-symbol ~@original-params)))
+       `([~@original-params] ~(apply-fn static-method-symbol :static)))
      ;; arity for non-curried function
      no-currying
-     `([this# ~@original-params]
-       (let [result# (~raw-method-symbol this# ~@original-params)]
-         (if ~is-void
-           this#
-           result#)))
+     (let [this-symbol (gensym "this")]
+       `([~this-symbol ~@original-params]
+         (let [result# ~(apply-fn raw-method-symbol this-symbol)]
+           (if ~is-void
+             ~this-symbol
+             result#))))
      ;; arity for curried function
      :else
      `([~@original-params]
-       (let [result# (apply (fn [~@coerced-params] (~raw-method-symbol @~instance ~@coerced-params))
-                            (if (not (empty? (list ~@original-params)))
-                              (ganjika.coercion/coerce-params
-                               (list ~@original-params)
-                               (list ~@signatures))
-                              '()))]
+       (let [result# ~(apply-fn raw-method-symbol `@~instance)]
          (if ~is-void
            @~instance
            result#))))))
