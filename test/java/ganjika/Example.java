@@ -1,5 +1,7 @@
 package ganjika;
 
+import java.util.List;
+
 public class Example {
     final String name;
 
@@ -29,5 +31,17 @@ public class Example {
 
     public static int addTwoNumbers(int x, int y) {
         return x + y;
+    }
+
+    public String goodBye(String[] list) {
+        String names = "";
+        for (String name : list) {
+            names += " " + name;
+        }
+        return String.format("Bye%s", names);
+    }
+
+    public long square(Integer i) {
+        return i * i;
     }
 }

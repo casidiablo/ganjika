@@ -1,6 +1,7 @@
 (ns ganjika.core
   (:require [ganjika.util :refer [camel-to-kebab-case is-public
-                                  map-values]]))
+                                  map-values]]
+            [ganjika.coercion :refer [primitives]]))
 
 (defn- method-specs
   "Creates a seq of specs for all public methods of the provided class."
@@ -24,20 +25,16 @@
   "Hints the provided symbol using the provided type.
   For primitive types uses the Java wrapper classes."
   [sym type]
-  (let [boxed-primitive {"int" java.lang.Integer "long" java.lang.Long
-                         "short" java.lang.Short "float" java.lang.Float
-                         "double" java.lang.Double "boolean" java.lang.Boolean
-                         "byte" java.lang.Byte "char" java.lang.Character}]
-    (vary-meta sym assoc :tag (or (boxed-primitive (.getName type)) type))))
+  (vary-meta sym assoc :tag (or (primitives (.getName type)) type)))
 
 (defn- build-params
   "Given a method spec returns a list of symbols to be used as function
   parameters (type-hinting them if necessary)"
-  [spec use-type-hinting]
+  [spec use-type-hinting symbol-prefix]
   (let [params (->> spec
                     :param-count
                     range
-                    (map #(gensym (str "param-" %)))
+                    (map #(gensym (str (name symbol-prefix) %)))
                     vec)]
     (if (and use-type-hinting (not (:disable-hinting spec)))
       (map hint-symbol params (:param-types spec))
@@ -47,24 +44,31 @@
   "Giving a spec builds the arity part of a fn, i.e.: `([params] body)."
   [instance no-currying use-type-hinting spec]
   (let [raw-method-symbol (symbol (str "." (:raw-name spec)))
-        params (build-params spec use-type-hinting)
+        original-params (build-params spec use-type-hinting :original-param)
+        coerced-params (build-params spec use-type-hinting :coerced-param)
+        signatures (:signatures spec)
         is-void (:is-void spec)]
     (cond
      ;; arity for static method
      (:is-static spec)
      (let [static-method-symbol (symbol (str (:class-name spec) "/" (:raw-name spec)))]
-       `([~@params] (~static-method-symbol ~@params)))
+       `([~@original-params] (~static-method-symbol ~@original-params)))
      ;; arity for non-curried function
      no-currying
-     `([this# ~@params]
-       (let [result# (~raw-method-symbol this# ~@params)]
+     `([this# ~@original-params]
+       (let [result# (~raw-method-symbol this# ~@original-params)]
          (if ~is-void
            this#
            result#)))
      ;; arity for curried function
      :else
-     `([~@params]
-       (let [result# (~raw-method-symbol @~instance ~@params)]
+     `([~@original-params]
+       (let [result# (apply (fn [~@coerced-params] (~raw-method-symbol @~instance ~@coerced-params))
+                            (if (not (empty? (list ~@original-params)))
+                              (ganjika.coercion/coerce-params
+                               (list ~@original-params)
+                               (list ~@signatures))
+                              '()))]
          (if ~is-void
            @~instance
            result#))))))
@@ -89,13 +93,11 @@
 (defn- remove-repeated-arities
   "Given a seq of specs with the same :name, removes the ones that have
   repeated arities."
-  ;; TODO take into account repeated arities for methods with the same name
-  ;; but different modifiers (static/non-static)
   [specs]
   (map (fn [[_ [spec & has-specs-with-same-arity]]]
-         (if has-specs-with-same-arity
-           (assoc spec :disable-hinting true)
-           spec))
+         (assoc spec
+           :disable-hinting (not (empty? has-specs-with-same-arity))
+           :signatures (map :param-types (cons spec has-specs-with-same-arity))))
        (group-by :param-count specs)))
 
 (defn- build-specs
@@ -129,6 +131,7 @@
         mappings (map-values #(:raw-name (first %)) specs)]
     (when-not no-currying (assert (instance? clazz instance)))
     `(do
+       (require 'ganjika.coercion)
        (when ~using-ns
          (in-ns ~using-ns))
        ~@(map function-builder specs)

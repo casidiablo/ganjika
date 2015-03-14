@@ -20,8 +20,10 @@
     ;; currried function, second arity
     (is (= "Hi, Plain!!!!" (say-hello 4)))
     ;; methods with same arity but different signature
-    ;; TODO coercion! (is (= "sum is 42" (coercive-sum 13 29)))
     (is (= "sum is 42" (coercive-sum "13" "29")))
-    ;(is (= "sum is 42" (.coerciveSum example-instance "13" "29")))
+    (is (= "sum is 42" (coercive-sum 13 29)))
     ;; static method
-    (is (= 42 (add-two-numbers 13 29)))))
+    (is (= 42 (add-two-numbers 13 29)))
+    ;; type coercion
+    (is (= "Bye Terence McKenna" (good-bye ["Terence" "McKenna"])))
+    (is (= 25 (square (int 5))))))
