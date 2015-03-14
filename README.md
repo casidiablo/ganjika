@@ -53,3 +53,4 @@ Add to leiningen `[ganjika 0.1.0-SNAPSHOT]`. Then:
 - Custom coercions
 - Static only option (and other filters)
 - Complete the coercion suite
+- Test AOT
