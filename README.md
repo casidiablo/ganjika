@@ -7,7 +7,7 @@ coercion by from clojure to Java types and data structures.
 
 ## Usage
 
-Add to leiningen `[ganjika 0.1.0-SNAPSHOT]`. Then:
+Add to leiningen `[ganjika 0.2.0]`. Then:
 
 ```clojure
 (use 'ganjika.core)
