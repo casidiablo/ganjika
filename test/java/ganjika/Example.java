@@ -41,6 +41,70 @@ public class Example {
         return String.format("Bye%s", names);
     }
 
+    public int varArgsInt(int... args) {
+        int sum = 0;
+        for (int x : args) {
+            sum += x;
+        }
+        return sum;
+    }
+
+    public String varArgsChar(char... args) {
+        String sum = "";
+        for (char x : args) {
+            sum += x;
+        }
+        return sum;
+    }
+
+    public long varArgsLong(long... args) {
+        long sum = 0;
+        for (long x : args) {
+            sum += x;
+        }
+        return sum;
+    }
+
+    public short varArgsShort(short... args) {
+        short sum = 0;
+        for (short x : args) {
+            sum += x;
+        }
+        return sum;
+    }
+
+    public float varArgsFloat(float... args) {
+        float sum = 0;
+        for (float x : args) {
+            sum += x;
+        }
+        return sum;
+    }
+
+    public double varArgsDouble(double... args) {
+        double sum = 0;
+        for (double x : args) {
+            sum += x;
+        }
+        return sum;
+    }
+
+    public boolean varArgsBoolean(boolean... args) {
+        boolean sum = false;
+        for (boolean x : args) {
+            sum = sum || x;
+        }
+        return sum;
+    }
+
+    public byte varArgsByte(byte... args) {
+        byte sum = 0;
+        for (byte x : args) {
+            sum |= x;
+        }
+        return sum;
+    }
+
     public long square(Integer i) {
         return i * i;
     }

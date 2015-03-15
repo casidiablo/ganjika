@@ -11,10 +11,20 @@
 (def ^:private basic-coercions
   "Map with coercions functions that can be used by most numeric types"
   {Integer int
+   Long long
    String str
    Float float
    Double double
    Short short})
+
+(defn- array-coercer [type coercer]
+  (fn [coll]
+    (let [size (count coll)
+          arr (make-array type size)]
+      (doall
+       (for [i (range size)]
+         (aset arr i (coercer (get coll i)))))
+      arr)))
 
 (def ^:private coercions
   "Dictionary of coercions. The key of this map is the \"origin type\"
@@ -32,13 +42,23 @@
               Long long}
    Boolean {Integer #(if % 1 0)
             String str}
-   PersistentVector {(Class/forName "[Ljava.lang.String;")
-                     (fn [v] (let [size (count v)
-                                  arr (make-array String size)]
-                              (doall
-                               (for [i (range size)]
-                                 (aset arr i (get v i))))
-                              arr))}})
+   PersistentVector {(Class/forName "[Ljava.lang.String;") (array-coercer String str)
+                     (Class/forName "[Ljava.lang.Integer;") (array-coercer Integer int)
+                     (Class/forName "[Ljava.lang.Long;") (array-coercer Long long)
+                     (Class/forName "[Ljava.lang.Float;") (array-coercer Float float)
+                     (Class/forName "[Ljava.lang.Double;") (array-coercer Double double)
+                     (Class/forName "[Ljava.lang.Short;") (array-coercer Short short)
+                     (Class/forName "[Ljava.lang.Byte;") (array-coercer Byte byte)
+                     (Class/forName "[Ljava.lang.Character;") (array-coercer Character char)
+                     (Class/forName "[Ljava.lang.Boolean;") (array-coercer Boolean boolean)
+                     (Class/forName "[I") int-array
+                     (Class/forName "[Z") boolean-array
+                     (Class/forName "[B") byte-array
+                     (Class/forName "[C") char-array
+                     (Class/forName "[D") double-array
+                     (Class/forName "[F") float-array
+                     (Class/forName "[J") long-array
+                     (Class/forName "[S") short-array}})
 
 (defn- does-not-need-coercion
   "Returns true if all params match the signature types"
@@ -51,7 +71,7 @@
   none is available"
   [param type]
   (if-let [coercion-fns (coercions (class param))]
-    (let [target-type (or (primitives (str type)) type)]
+    (let [target-type (or (primitives (.getName type)) type)]
       (coercion-fns target-type))))
 
 (defn- get-coercion-fns
