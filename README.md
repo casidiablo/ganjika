@@ -50,7 +50,5 @@ Add to leiningen `[ganjika 0.1.0-SNAPSHOT]`. Then:
 
 - Take into account repeated arities for methods with the same name but
   different modifiers (static/non-static)
-- Custom coercions
 - Static only option (and other filters)
-- Complete the coercion suite
 - Test AOT

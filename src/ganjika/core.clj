@@ -44,7 +44,7 @@
 (defn- apply-coercing
   "Returns an unevaluated apply of method-symbol coercing the provided
   params if necessary."
-  [method-symbol instance params signatures]
+  [coercions-transformer method-symbol instance params signatures]
   (let [instance (if (= instance :static) '() (list instance))
         coerced-params (map (fn [_] (gensym)) params)]
     `(apply (fn [~@coerced-params] (~method-symbol
@@ -53,7 +53,8 @@
             (if (not (empty? (list ~@params)))
               (ganjika.coercion/coerce-params
                (list ~@params)
-               (list ~@signatures))
+               (list ~@signatures)
+               ~coercions-transformer)
               '()))))
 
 (defn- apply-without-coercing
@@ -64,12 +65,14 @@
 
 (defn- build-arity
   "Giving a spec builds the arity part of a fn, i.e.: `([params] body)."
-  [instance opts-flags spec]
+  [instance opts-flags coercions-xformer spec]
   (let [raw-method-symbol (symbol (str "." (:raw-name spec)))
         original-params (build-params spec opts-flags :original-param)
         signatures (:signatures spec)
         is-void (:is-void spec)
-        application-strategy (if (:disable-coercion opts-flags) apply-without-coercing apply-coercing)
+        application-strategy (if (:disable-coercion opts-flags)
+                               apply-without-coercing
+                               (partial apply-coercing coercions-xformer))
         apply-fn (fn [method target] (application-strategy method target original-params signatures))]
     (cond
      ;; arity for static method
@@ -97,9 +100,9 @@
   The function will curry the target-sym unless no-currying is true.  If
   type-hinting is true, type-hinted all the function parameters (unless
   the spec forbids it with :disable-hinting)."
-  [target-sym opts-flags [fn-name specs]]
+  [target-sym opts-flags coercions-xformer [fn-name specs]]
   (let [fn-symbol (symbol fn-name)
-        arity-fn (partial build-arity target-sym opts-flags)]
+        arity-fn (partial build-arity target-sym opts-flags coercions-xformer)]
     `(defn ~fn-symbol ~@(map arity-fn specs))))
 
 (defn- define-symbol
@@ -137,7 +140,11 @@
   is provided.
 
   Function arguments are coerced if they don't type check against
-  underlying method signature, unless :disable-coercion is provided."
+  underlying method signature, unless :disable-coercion is
+  provided. Coercion is driven by a map with this structure: {OriginType
+  {DestType1 coercion-fn-1 DestType2 coercion-fn 2}}. The default map
+  can be modified by providing a function that receives the default
+  coercion map and returns a new one via :coercions-transformer"
   [target & opts]
   {:pre [(some? target),                    ;; target can't be null
          (if (:disable-currying (set opts)) ;; if no currying target must be a class
@@ -145,9 +152,10 @@
            :dont-care)]}
   (let [opts-flags #{:disable-currying :disable-type-hinting :disable-coercion}
         provided-flags (clojure.set/intersection opts-flags (set opts))
-        {:keys [using-ns]} (->> opts
-                                (filter (complement opts-flags))
-                                (apply hash-map))
+        {:keys [using-ns coercions-transformer]} (->> opts
+                                                      (filter (complement opts-flags))
+                                                      (apply hash-map))
+        coercions-xformer (or coercions-transformer identity)
         no-currying (:disable-currying provided-flags)
         resolved-target (eval target)
         clazz (if no-currying resolved-target (class resolved-target))
@@ -155,7 +163,7 @@
         specs (build-specs clazz)
         target-sym (if no-currying clazz (define-symbol instance))
         current-ns (.getName *ns*)
-        function-builder (partial build-function target-sym provided-flags)
+        function-builder (partial build-function target-sym provided-flags coercions-xformer)
         mappings (map-values #(:raw-name (first %)) specs)]
     (when-not no-currying (assert (instance? clazz instance)))
     `(do

@@ -37,6 +37,7 @@
     (is (= "Bye Terence McKenna" (good-bye ["Terence" "McKenna"])))
     (is (= 25 (square 10/2)))
     (is (= 42 (var-args-int [2 3 5 7 9 13 3])))
+    (is (= 42 (var-args-int '(2 3 5 7 9 13 3))))
     (is (= 42 (var-args-long [2 3 5 7 9 13 3])))
     (is (= 42 (var-args-short [2 3 5 7 9 13 3])))
     (is (= "abc" (var-args-char [\a \b \c])))
