@@ -7,7 +7,7 @@ coercion by from clojure to Java types and data structures.
 
 ## Usage
 
-Add to leiningen `[ganjika 0.3.0]`. Then:
+Add to leiningen `[ganjika 0.3.1]`. Then:
 
 ```clojure
 (use 'ganjika.core)
@@ -44,6 +44,13 @@ Add to leiningen `[ganjika 0.3.0]`. Then:
 ;; types. If that's a problem it can be disabled:
 
 (def-java-fns #'robot :disable-coercion)
+
+;; It is possible to filter which functions will be defined by providing
+;; a predicate that must return false or nil when the provided method
+;; must be ignored:
+
+(def-java-fns #'robot
+  :method-predicate #(not= "someIgnoredMethod" (.getName %)))
 ```
 
 ### TODO
