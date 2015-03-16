@@ -31,13 +31,13 @@
 (defn- build-params
   "Given a method spec returns a list of symbols to be used as function
   parameters (type-hinting them if necessary)"
-  [spec opts-flags symbol-prefix]
+  [spec opts-maps symbol-prefix]
   (let [params (->> spec
                     :param-count
                     range
                     (map #(gensym (str (name symbol-prefix) %)))
                     vec)]
-    (if (and (not (:disable-type-hinting opts-flags)) (not (:disable-hinting spec)))
+    (if (or (:disable-type-hinting opts-maps) (:disable-hinting spec))
       (map hint-symbol params (:param-types spec))
       params)))
 
@@ -63,24 +63,28 @@
   (let [target-var (if (= instance :static) '() (list instance))]
     `(~method-symbol ~@target-var ~@params)))
 
+(defn- get-apply-strategy [opts-map]
+  (if (:disable-coercion opts-map)
+    apply-without-coercing
+    (partial apply-coercing (or (:coercions-transformer opts-map)
+                                identity))))
+
 (defn- build-arity
   "Giving a spec builds the arity part of a fn, i.e.: `([params] body)."
-  [target-var opts-flags coercions-xformer spec]
+  [target-var opts-map spec]
   (let [raw-method-symbol (symbol (str "." (:raw-name spec)))
-        original-params (build-params spec opts-flags :original-param)
+        original-params (build-params spec opts-map :original-param)
         signatures (:signatures spec)
         is-void (:is-void spec)
-        application-strategy (if (:disable-coercion opts-flags)
-                               apply-without-coercing
-                               (partial apply-coercing coercions-xformer))
-        apply-fn (fn [method target] (application-strategy method target original-params signatures))]
+        apply-strategy (get-apply-strategy opts-map)
+        apply-fn (fn [method target] (apply-strategy method target original-params signatures))]
     (cond
      ;; arity for static method
      (:is-static spec)
      (let [static-method-symbol (symbol (str (:class-name spec) "/" (:raw-name spec)))]
        `([~@original-params] ~(apply-fn static-method-symbol :static)))
      ;; arity for non-curried function
-     (:disable-currying opts-flags)
+     (:disable-currying opts-map)
      (let [this-symbol (gensym "this")]
        `([~this-symbol ~@original-params]
          (let [result# ~(apply-fn raw-method-symbol this-symbol)]
@@ -100,10 +104,10 @@
   The function will curry the target-sym unless no-currying is true.  If
   type-hinting is true, type-hinted all the function parameters (unless
   the spec forbids it with :disable-hinting)."
-  [ns target-var opts-flags coercions-xformer [fn-name specs]]
+  [target-var opts-map [fn-name specs]]
   (let [fn-symbol (symbol fn-name)
-        arity-fn (partial build-arity target-var opts-flags coercions-xformer)]
-    `(intern (or ~ns *ns*) (quote ~fn-symbol) (fn ~@(map arity-fn specs)))))
+        arity-fn (partial build-arity target-var opts-map)]
+    `(intern (or ~(:using-ns opts-map) *ns*) (quote ~fn-symbol) (fn ~@(map arity-fn specs)))))
 
 (defn- define-symbol
   "Creates and return a symbol that resolves to the provided object"
@@ -130,6 +134,21 @@
        (group-by :name)
        (map-values remove-repeated-arities)))
 
+(defn parse-opts
+  "Takes a sequence of opts and returns an opts hashmap, e.g.:
+  '(:using-ns 'foo.bar :disable-coercion) will yield {:using-ns
+  'foo-bar :disable-coercion true}"
+  [opts]
+  (letfn [(complete-opts-pairds [acc opt]
+            (let [opts-flags #{:disable-currying :disable-type-hinting :disable-coercion}
+                  opt-pair (if (opts-flags opt)
+                             (list opt true)
+                             (list opt))]
+              (concat acc opt-pair)))]
+    (->> opts
+         (reduce complete-opts-pairds '())
+         (apply hash-map))))
+
 (defmacro def-java-fns
   "Maps the methods of the provided object to clojure-like
   functions (inside :using-ns if any or in the current namespace). All
@@ -150,22 +169,17 @@
          (if (:disable-currying (set opts)) ;; if no currying target must be a class
            (instance? java.lang.Class (eval target))
            :dont-care)]}
-  (let [opts-flags #{:disable-currying :disable-type-hinting :disable-coercion}
-        provided-flags (clojure.set/intersection opts-flags (set opts))
-        {:keys [using-ns coercions-transformer]} (->> opts
-                                                      (filter (complement opts-flags))
-                                                      (apply hash-map))
-        coercions-xformer (or coercions-transformer identity)
-        no-currying (:disable-currying provided-flags)
+  (let [opts-map (parse-opts opts)
+        no-currying (:disable-currying opts-map)
         evaled-target (eval target)
         clazz (if no-currying evaled-target (class @evaled-target))
         instance-var (if no-currying nil (eval `~target))
         specs (build-specs clazz)
-        function-builder (partial build-function using-ns instance-var provided-flags coercions-xformer)
+        function-builder (partial build-function instance-var opts-map)
         mappings (map-values #(:raw-name (first %)) specs)]
     `(do
        (require 'ganjika.coercion)
-       (when ~using-ns
-         (create-ns ~using-ns))
+       ~(when-let [ns (:using-ns opts-map)]
+         `(create-ns ~ns))
        ~@(map function-builder specs)
        ~mappings)))
