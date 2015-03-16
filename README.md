@@ -16,14 +16,14 @@ Add to leiningen `[ganjika 0.2.0]`. Then:
 ;; curried with the provided instance:
 
 (def robot (new java.awt.Robot))
-(def-java-fns robot)
+(def-java-fns #'robot)
 
 ;; This means now you can do: (mouse-move 200 50) instead of the usual
 ;; way (.mouseMove robot 200 50)
 
 ;; You can specify a namespace to define the functions:
 
-(def-java-fns robot :using-ns 'my.robot)
+(def-java-fns #'robot :using-ns 'my.robot)
 (my.robot/mouse-move 30 400)
 
 ;; Use refer (instead of require/use) to avoid the namespace prefix
@@ -38,12 +38,12 @@ Add to leiningen `[ganjika 0.2.0]`. Then:
 ;; By default the functions are defined using type hinting. This
 ;; behavior can be changed by doing:
 
-(def-java-fns robot :disable-type-hinting)
+(def-java-fns #'robot :disable-type-hinting)
 
 ;; By default functions parameters are coerced to the underlying method
 ;; types. If that's a problem it can be disabled:
 
-(def-java-fns robot :disable-coercion)
+(def-java-fns #'robot :disable-coercion)
 ```
 
 ### TODO
@@ -51,4 +51,3 @@ Add to leiningen `[ganjika 0.2.0]`. Then:
 - Take into account repeated arities for methods with the same name but
   different modifiers (static/non-static)
 - Static only option (and other filters)
-- Test AOT

@@ -44,11 +44,11 @@
 (defn- apply-coercing
   "Returns an unevaluated apply of method-symbol coercing the provided
   params if necessary."
-  [coercions-transformer method-symbol instance params signatures]
-  (let [instance (if (= instance :static) '() (list instance))
+  [coercions-transformer method-symbol target-var params signatures]
+  (let [target-var (if (= target-var :static) '() (list target-var))
         coerced-params (map (fn [_] (gensym)) params)]
     `(apply (fn [~@coerced-params] (~method-symbol
-                                   ~@instance
+                                   ~@target-var
                                    ~@coerced-params))
             (if (not (empty? (list ~@params)))
               (ganjika.coercion/coerce-params
@@ -60,12 +60,12 @@
 (defn- apply-without-coercing
   "Returns an unevaluated application of method-symbol"
   [method-symbol instance params signatures]
-  (let [instance (if (= instance :static) '() (list instance))]
-    `(~method-symbol ~@instance ~@params)))
+  (let [target-var (if (= instance :static) '() (list instance))]
+    `(~method-symbol ~@target-var ~@params)))
 
 (defn- build-arity
   "Giving a spec builds the arity part of a fn, i.e.: `([params] body)."
-  [instance opts-flags coercions-xformer spec]
+  [target-var opts-flags coercions-xformer spec]
   (let [raw-method-symbol (symbol (str "." (:raw-name spec)))
         original-params (build-params spec opts-flags :original-param)
         signatures (:signatures spec)
@@ -90,9 +90,9 @@
      ;; arity for curried function
      :else
      `([~@original-params]
-       (let [result# ~(apply-fn raw-method-symbol `@~instance)]
+       (let [result# ~(apply-fn raw-method-symbol `(deref ~target-var))]
          (if ~is-void
-           @~instance
+           @~target-var
            result#))))))
 
 (defn- build-function
@@ -100,9 +100,9 @@
   The function will curry the target-sym unless no-currying is true.  If
   type-hinting is true, type-hinted all the function parameters (unless
   the spec forbids it with :disable-hinting)."
-  [ns target-sym opts-flags coercions-xformer [fn-name specs]]
+  [ns target-var opts-flags coercions-xformer [fn-name specs]]
   (let [fn-symbol (symbol fn-name)
-        arity-fn (partial build-arity target-sym opts-flags coercions-xformer)]
+        arity-fn (partial build-arity target-var opts-flags coercions-xformer)]
     `(intern (or ~ns *ns*) (quote ~fn-symbol) (fn ~@(map arity-fn specs)))))
 
 (defn- define-symbol
@@ -157,14 +157,12 @@
                                                       (apply hash-map))
         coercions-xformer (or coercions-transformer identity)
         no-currying (:disable-currying provided-flags)
-        resolved-target (eval target)
-        clazz (if no-currying resolved-target (class resolved-target))
-        instance (if no-currying nil resolved-target)
+        evaled-target (eval target)
+        clazz (if no-currying evaled-target (class @evaled-target))
+        instance-var (if no-currying nil (eval `~target))
         specs (build-specs clazz)
-        target-sym (if no-currying clazz (define-symbol instance))
-        function-builder (partial build-function using-ns target-sym provided-flags coercions-xformer)
+        function-builder (partial build-function using-ns instance-var provided-flags coercions-xformer)
         mappings (map-values #(:raw-name (first %)) specs)]
-    (when-not no-currying (assert (instance? clazz instance)))
     `(do
        (require 'ganjika.coercion)
        (when ~using-ns

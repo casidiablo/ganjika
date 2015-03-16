@@ -3,11 +3,16 @@
             [ganjika.core :refer [def-java-fns]])
   (:import ganjika.Example))
 
-(def-java-fns (new Example "Plain"))
-(def-java-fns (new Example "Namespaced") :using-ns 'cool.ns)
-(def-java-fns (new Example "No Coercion") :using-ns 'no.coercion.ns :disable-coercion)
+(def plain (new Example "Plain"))
+(def-java-fns #'plain)
 
-(def example-instance (new Example "NoCurried"))
+(def namespaced (new Example "Namespaced"))
+(def-java-fns #'namespaced :using-ns 'cool.ns)
+
+(def no-coercion (new Example "No Coercion"))
+(def-java-fns #'no-coercion :using-ns 'no.coercion.ns :disable-coercion)
+
+(def no-curried (new Example "NoCurried"))
 (def-java-fns Example :using-ns 'no.haskell :disable-currying)
 
 (deftest functionality
@@ -17,7 +22,7 @@
     ;; curried namespaced function
     (is (= "Hi, Namespaced!" (cool.ns/say-hello)))
     ;; non-curried namespaced function
-    (is (= "Hi, NoCurried!" (no.haskell/say-hello example-instance)))
+    (is (= "Hi, NoCurried!" (no.haskell/say-hello no-curried)))
     ;; currried function, second arity
     (is (= "Hi, Plain!!!!" (say-hello 4)))
     ;; methods with same arity but different signature
