@@ -20,41 +20,33 @@ Add to leiningen `[ganjika 0.3.1]`. Then:
 
 ;; This defines clojure-like functions in the current namespace, which are
 ;; curried with the provided instance:
-
 (def robot (new java.awt.Robot))
 (def-java-fns #'robot)
-
 ;; This means now you can do: (mouse-move 200 50) instead of the usual
-;; way (.mouseMove robot 200 50)
+;; way (.mouseMove robot 200 50). Notice that the instance was curried.
 
 ;; You can specify a namespace to define the functions:
-
 (def-java-fns #'robot :using-ns 'my.robot)
 (my.robot/mouse-move 30 400)
 
 ;; Use refer (instead of require/use) to avoid the namespace prefix
-
 (refer 'my.robot :only ['mouse-move])
 
 ;; In some scenarios currying is not desirable:
-
 (def-java-fns java.awt.Robot :disable-currying)
 (mouse-move robot 30 400)
 
 ;; By default the functions are defined using type hinting. This
 ;; behavior can be changed by doing:
-
 (def-java-fns #'robot :disable-type-hinting)
 
 ;; By default functions parameters are coerced to the underlying method
 ;; types. If that's a problem it can be disabled:
-
 (def-java-fns #'robot :disable-coercion)
 
 ;; It is possible to filter which functions will be defined by providing
 ;; a predicate that must return false or nil when the provided method
 ;; must be ignored:
-
 (def-java-fns #'robot
   :method-predicate #(not= "someIgnoredMethod" (.getName %)))
 ```
