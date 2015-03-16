@@ -108,4 +108,7 @@ public class Example {
     public long square(Integer i) {
         return i * i;
     }
+
+    public void ignoredMethod() {
+    }
 }

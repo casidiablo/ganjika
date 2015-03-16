@@ -4,7 +4,7 @@
   (:import ganjika.Example))
 
 (def plain (new Example "Plain"))
-(def-java-fns #'plain)
+(def-java-fns #'plain :method-predicate #(not= "ignoredMethod" (.getName %)))
 
 (def namespaced (new Example "Namespaced"))
 (def-java-fns #'namespaced :using-ns 'cool.ns)
@@ -29,7 +29,9 @@
     (is (= "sum is 42" (coercive-sum "13" "29")))
     (is (= "sum is 42" (coercive-sum 13 29)))
     ;; static method
-    (is (= 42 (add-two-numbers 13 29))))
+    (is (= 42 (add-two-numbers 13 29)))
+    ;; ignored method
+    (is (not (resolve (symbol "ignored-method")))))
 
   (testing "Validation works"
     ;; can't accept nils

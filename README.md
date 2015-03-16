@@ -7,7 +7,7 @@ coercion by from clojure to Java types and data structures.
 
 ## Usage
 
-Add to leiningen `[ganjika 0.2.0]`. Then:
+Add to leiningen `[ganjika 0.3.0]`. Then:
 
 ```clojure
 (use 'ganjika.core)
@@ -50,4 +50,4 @@ Add to leiningen `[ganjika 0.2.0]`. Then:
 
 - Take into account repeated arities for methods with the same name but
   different modifiers (static/non-static)
-- Static only option (and other filters)
+

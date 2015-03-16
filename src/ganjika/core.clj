@@ -6,10 +6,13 @@
 
 (defn- method-specs
   "Creates a seq of specs for all public methods of the provided class."
-  [^java.lang.Class c]
+  [opts-map ^java.lang.Class c]
   (->> c
        .getDeclaredMethods
        (filter is-public)
+       (filter (if-let [pred (eval (:method-predicate opts-map))]
+                 pred
+                 identity))
        (map (fn [m]
               {:class-name (.getName c)
                :name (camel-to-kebab-case (.getName m))
@@ -128,9 +131,9 @@
 
 (defn- build-specs
   "Given a class builds map of method specs grouped by :name"
-  [clazz]
+  [opts-map clazz]
   (->> clazz
-       method-specs
+       (method-specs opts-map)
        (group-by :name)
        (map-values remove-repeated-arities)))
 
@@ -163,7 +166,11 @@
   provided. Coercion is driven by a map with this structure: {OriginType
   {DestType1 coercion-fn-1 DestType2 coercion-fn 2}}. The default map
   can be modified by providing a function that receives the default
-  coercion map and returns a new one via :coercions-transformer"
+  coercion map and returns a new one via :coercions-transformer
+
+  You can control which functions are created via :method-predicate fn,
+  where fn is a function that receives a java.lang.reflect.Method and
+  returns false or nil if the method must be ignored"
   [target & opts]
   {:pre [(some? target),                    ;; target can't be null
          (if (:disable-currying (set opts)) ;; if no currying target must be a class
@@ -174,7 +181,7 @@
         evaled-target (eval target)
         clazz (if no-currying evaled-target (class @evaled-target))
         instance-var (if no-currying nil (eval `~target))
-        specs (build-specs clazz)
+        specs (build-specs opts-map clazz)
         function-builder (partial build-function instance-var opts-map)
         mappings (map-values #(:raw-name (first %)) specs)]
     `(do
