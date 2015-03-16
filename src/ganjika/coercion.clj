@@ -50,8 +50,8 @@
   "Dictionary of coercions. The key of this map is the \"origin type\"
   and the value are the \"supported destination types\", which is a map
   from the \"destination type\" to the function that can do the
-  coercion. e.g.: it is possible to convert from Integer to Float,
-  because this is not nil: (-> Integer coercions (get Float))"
+  coercion. e.g.: it is possible to convert from type-1 to type-2 iff
+  (-> type-1 coercions (get type-2)) returns a function"
   {Long basic-coercions
    Integer basic-coercions
    Float basic-coercions

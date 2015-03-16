@@ -137,7 +137,7 @@
        (group-by :name)
        (map-values remove-repeated-arities)))
 
-(defn parse-opts
+(defn- parse-opts
   "Takes a sequence of opts and returns an opts hashmap, e.g.:
   '(:using-ns 'foo.bar :disable-coercion) will yield {:using-ns
   'foo-bar :disable-coercion true}"

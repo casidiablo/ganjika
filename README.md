@@ -1,9 +1,15 @@
 # ganjika
 
-Provides the `def-java-fns` macro which will define clojure-like
-functions out of a Java class or object. It's meant to make it easier to
-wrap Java libraries without the usual boilerplate. It also provides
-coercion by from clojure to Java types and data structures.
+Ganjika is a library that makes Java interop more clojurish. It provides
+the `def-java-fns` macro which will define clojure-like functions out of
+a Java class or object. This is what it does for you:
+
+- Makes unnecessary to write/use the usual boilerplate associated with
+  wrapping Java libraries
+- Optional and customizable layer of type coercion
+- Optional currying
+- Optional namespacing
+- Optional type-hinting
 
 ## Usage
 
@@ -51,6 +57,51 @@ Add to leiningen `[ganjika 0.3.1]`. Then:
 
 (def-java-fns #'robot
   :method-predicate #(not= "someIgnoredMethod" (.getName %)))
+```
+
+## Coercion
+
+Imagine a Java class defined like this:
+
+```java
+public void someMethod(String[] list) {
+  // something
+}
+```
+
+In order to call this from clojure you might have to do something like:
+
+```clojure
+(def obj (new SomeClass))
+(def arr (make-array String 2))
+(aset arr 0 "foo")
+(aset arr 1 "bar")
+(.someMethod obj arr)
+```
+
+ganjika will coerce the function parameters by default, which means you an just do:
+
+```clojure
+;; the vector will be coerced to an array of strings
+(some-method ["foo" "bar"])
+```
+
+Coercion is driven by an internal map that looks like this:
+
+```clojure
+{src-type-1 {dest-type1 fn1
+             dest-type2 fn2}}
+```
+
+Each top entry in the map represents a supported source type; the inner
+map represents the supported destination types providing functions that
+will coerce src-type to dest-type.
+
+This map can be modified via :coercions-transformer
+
+```clojure
+(def-java-fns #'something
+  :coercions-transformer #(assoc % additional-src-type {des-type fn}))
 ```
 
 ### TODO

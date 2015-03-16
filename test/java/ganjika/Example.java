@@ -109,6 +109,10 @@ public class Example {
         return i * i;
     }
 
+    public boolean weirdParam(Thread thread) {
+        return thread != null;
+    }
+
     public void ignoredMethod() {
     }
 }

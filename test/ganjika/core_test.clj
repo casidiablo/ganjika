@@ -15,6 +15,10 @@
 (def no-curried (new Example "NoCurried"))
 (def-java-fns Example :using-ns 'no.haskell :disable-currying)
 
+(def-java-fns #'plain
+  :coercions-transformer #(update-in % [String Thread] (fn [_] (fn [_] (new Thread))))
+  :using-ns 'custom.coercions)
+
 (deftest functionality
   (testing "Functions were defined"
     ;; curried function
@@ -54,4 +58,6 @@
     (is (var-args-boolean [false false false false true]))
     ;; without type coercion
     (is (= 25 (no.coercion.ns/square (int 5))))
-    (is (thrown? ClassCastException (no.coercion.ns/square 5)))))
+    (is (thrown? ClassCastException (no.coercion.ns/square 5)))
+    ;; custom coercions
+    (is (custom.coercions/weird-param "something"))))
