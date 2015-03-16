@@ -1,4 +1,4 @@
-(defproject ganjika "0.2.0"
+(defproject ganjika "0.3.0-SNAPSHOT"
   :description "Java interop glue"
   :url "https://github.com/casidiablo/ganjika"
   :license {:name "Eclipse Public License"

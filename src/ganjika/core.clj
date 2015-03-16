@@ -100,10 +100,10 @@
   The function will curry the target-sym unless no-currying is true.  If
   type-hinting is true, type-hinted all the function parameters (unless
   the spec forbids it with :disable-hinting)."
-  [target-sym opts-flags coercions-xformer [fn-name specs]]
+  [ns target-sym opts-flags coercions-xformer [fn-name specs]]
   (let [fn-symbol (symbol fn-name)
         arity-fn (partial build-arity target-sym opts-flags coercions-xformer)]
-    `(defn ~fn-symbol ~@(map arity-fn specs))))
+    `(intern (or ~ns *ns*) (quote ~fn-symbol) (fn ~@(map arity-fn specs)))))
 
 (defn- define-symbol
   "Creates and return a symbol that resolves to the provided object"
@@ -162,14 +162,12 @@
         instance (if no-currying nil resolved-target)
         specs (build-specs clazz)
         target-sym (if no-currying clazz (define-symbol instance))
-        current-ns (.getName *ns*)
-        function-builder (partial build-function target-sym provided-flags coercions-xformer)
+        function-builder (partial build-function using-ns target-sym provided-flags coercions-xformer)
         mappings (map-values #(:raw-name (first %)) specs)]
     (when-not no-currying (assert (instance? clazz instance)))
     `(do
        (require 'ganjika.coercion)
        (when ~using-ns
-         (in-ns ~using-ns))
+         (create-ns ~using-ns))
        ~@(map function-builder specs)
-       (in-ns (quote ~current-ns))
        ~mappings)))
