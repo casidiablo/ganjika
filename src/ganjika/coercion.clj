@@ -91,7 +91,7 @@
   "Coerce the list of params to the *first* possible signature in the
   signatures list. If no coercion is found, return params as-is"
   [params signatures coercions-xformer]
-  (if-let [coercion-fns (some #(if (not (empty? %)) % nil)
+  (if-let [coercion-fns (some #(when (seq %) %)
                               (map #(get-coercion-fns params % coercions-xformer) signatures))]
     (map #(%1 %2) coercion-fns params)
     params))

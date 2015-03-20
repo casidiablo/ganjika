@@ -125,7 +125,7 @@
   [specs]
   (map (fn [[_ [spec & has-specs-with-same-arity]]]
          (assoc spec
-           :disable-hinting (not (empty? has-specs-with-same-arity))
+           :disable-hinting (seq has-specs-with-same-arity)
            :signatures (map :param-types (cons spec has-specs-with-same-arity))))
        (group-by :param-count specs)))
 
@@ -180,7 +180,7 @@
         no-currying (:disable-currying opts-map)
         evaled-target (eval target)
         clazz (if no-currying evaled-target (class @evaled-target))
-        instance-var (if no-currying nil (eval `~target))
+        instance-var (when-not no-currying (eval `~target))
         specs (build-specs opts-map clazz)
         function-builder (partial build-function instance-var opts-map)
         mappings (map-values #(:raw-name (first %)) specs)]
